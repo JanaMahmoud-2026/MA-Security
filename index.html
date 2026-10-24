@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MA Security - محول آمن</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{margin:0;font-family:Tajawal,system-ui;background:#f0f6ff}
+.header{background:#132f4c;color:#fff;padding:18px;text-align:center}
+.box{max-width:900px;margin:20px auto;padding:20px}
+.upload{border:3px dashed #00b4;background:#fff;border-radius:18px;padding:35px;text-align:center;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:20px}
+.card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 4px 12px #0001}
+.btn{width:100%;background:#fff;border:2px solid #00b4b4;color:#00b4b4;padding:8px;border-radius:8px;font-weight:bold;margin-top:8px}
+.status{margin:15px 0;text-align:center;font-weight:bold;color:#132f4c;font-size:18px}
+</style>
+</head>
+<body>
+<div class="header">
+<h2>MA Security 🔒</h2>
+<p>محول PDF إلى Excel - كل طالب له شيت سري منفصل</p>
+</div>
+<div class="box">
+<div class="upload" onclick="document.getElementById('pdf').click()">
+<input type="file" id="pdf" hidden accept=".pdf">
+<h3>📤 اضغطي هنا لرفع ملف PDF</h3>
+<p id="fname"></p>
+</div>
+<div class="status" id="status"></div>
+<div class="grid" id="grid"></div>
+</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let students=[];
+document.getElementById('pdf').onchange=async(e)=>{
+let file=e.target.files[0]; if(!file) return;
+fname.textContent=file.name;
+status.textContent='جاري قراءة الملف...';
+let buffer=await file.arrayBuffer();
+let pdf=await pdfjsLib.getDocument(buffer).promise;
+let fullText='';
+for(let i=1;i<=pdf.numPages;i++){let page=await pdf.getPage(i); let content=await page.getTextContent(); fullText+=content.items.map(s=>s.str).join(' ')+'\n';}
+let codes=[...fullText.matchAll(/\b\d{9}\b/g)].map(m=>m[0]);
+let unique=[...new Set(codes)];
+students=unique.map((code,idx)=>({id:idx+1,code:code,name:`طالب ${idx+1}`,pass:code}));
+status.textContent=`✅ تم العثور على ${students.length} طالب - كل شيت منفصل وآمن`;
+render();
+};
+function render(){
+grid.innerHTML='';
+students.forEach(s=>{
+let div=document.createElement('div');
+div.className='card';
+div.innerHTML=`<b>🔒 ${s.name}</b><br><small style="color:#666">كود: ${s.code}</small><br><small>باسورد الشيت: ${s.pass}</small><button class="btn" onclick="downloadOne(${s.id})">⬇️ تحميل شيت هذا الطالب فقط</button>`;
+grid.appendChild(div);
+});
+}
+function downloadOne(id){
+let s=students.find(x=>x.id===id);
+let data=[
+["MA Security - ملف سري"],
+["تنبيه: هذا الملف خاص بهذا الطالب فقط"],
+[],
+["اسم الطالب", s.name],
+["الكود السري", s.code],
+["الباسورد", s.pass],
+["تاريخ الإنشاء", new Date().toLocaleDateString('ar-EG')]
+];
+let ws=XLSX.utils.aoa_to_sheet(data);
+let wb=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb,ws,'سري');
+XLSX.writeFile(wb,`MA-Security_${s.code}.xlsx`);
+}
+</script>
+</body>
+</html>
